@@ -1,0 +1,85 @@
+#include "stm32g071xx.h"
+#include <string.h>
+
+void LCD_gpio   (void);
+void LCD_cmd    (uint8_t comd);
+void LCD_disp   (unsigned char char1);
+void msdelay    (uint32_t value);
+
+int main(void)
+{
+    unsigned char msg1[11] = "Dept of EC";   // 10 chars + '\0'
+   unsigned char msg2[6]  = "SVNIT";        // 5 chars + '\0'
+
+    uint8_t j;
+
+    LCD_gpio();          // Initialize GPIO
+    msdelay(150);
+
+    LCD_cmd(0x38);       // 8-bit mode, 2 line, 5x7 dots
+    LCD_cmd(0x01);       // clear display screen
+    LCD_cmd(0x0C);       // display on, cursor on
+    LCD_cmd(0x06);       // auto increment cursor
+    LCD_cmd(0x80);       // go to 1st line
+ msdelay(150);
+    for (j = 0; j < 10; j++)   // print only valid characters
+    LCD_disp(msg1[j]);
+
+LCD_cmd(0xC0);
+
+for (j = 0; j < 5; j++)
+    LCD_disp(msg2[j]);
+
+}
+void LCD_gpio(void) {
+    // Enable clock for Port A and B
+    RCC->IOPENR |= 0x00000003;
+
+    // Set pin 4,6 and 7 of port A as output mode (push-pull)
+    GPIOA->MODER &= 0xFFFF0CFF;   // clear required field
+    GPIOA->MODER |= 0x00005100;   // set required bits
+    GPIOA->OTYPER &= 0xFFFFFF2F;  // use pull-push type
+    GPIOA->PUPDR &= 0xFFFFF0CF;   // No pull up, no pull down
+
+    // set pins 0 to 7 of port B as output
+    GPIOB->MODER &= 0xFFFF0000;   // clear required field
+    GPIOB->MODER |= 0x00005555;   // set required bits
+    GPIOB->OTYPER &= 0xFFFFFF00;  // use pull-push type
+
+    GPIOB->PUPDR &= 0xFFFF0000;   // No pull up, no pull down
+
+    GPIOA->ODR = GPIOA->ODR & 0xFFBF;   // PA6 (R/W) low
+}
+
+void LCD_cmd(uint8_t comd)
+{
+    GPIOB->ODR = GPIOB->ODR & 0xFF00;
+    GPIOB->ODR = GPIOB->ODR | comd;     // send command
+
+    GPIOA->ODR = GPIOA->ODR & 0xFF7F;   // RS = 0 on pin PA7
+
+    GPIOA->ODR = GPIOA->ODR | 0x0010;   // EN = 1 on pin PA4
+    msdelay(1);
+    GPIOA->ODR = GPIOA->ODR & 0xFFEF;   // EN = 0 on pin PA4
+    msdelay(150);
+}
+
+void LCD_disp(unsigned char char1)
+{
+    GPIOB->ODR = GPIOB->ODR & 0xFF00;
+    GPIOB->ODR = GPIOB->ODR | char1;    // send ascii code
+
+    GPIOA->ODR = GPIOA->ODR | 0x0080;   // RS = 1 on pin PA7
+
+    GPIOA->ODR = GPIOA->ODR | 0x0010;   // EN = 1 on pin PA4
+    msdelay(1);
+    GPIOA->ODR = GPIOA->ODR & 0xFFEF;   // EN = 0 on pin PA4
+    msdelay(150);
+}
+
+void msdelay(uint32_t value)
+{
+    long int loops;
+    loops = 850 * value * 4;
+    while (loops--) { }
+}
